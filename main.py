@@ -8,20 +8,21 @@
 import re
 import time
 import urllib3
-import download.download
+import download
+import m3u8ToMp4
 import custome.string
+from urllib import parse
 
 
 def main():
-    '''
-    baseUrl:
-        7047: 视频id
-        0: 链接组号
-        0: 集数
-    '''
-    baseUrl = "http://www.imomoe.ai/player/7047-0-0.html"
+    baseSearchUrl = "http://www.imomoe.ai/search.asp?searchword={search}"
 
-    videoUrls = getVideoUrls(baseUrl)
+    videoDetails = searchVideos(baseSearchUrl)
+
+    basePlayUrl = videoDetails[0]
+    videoName = videoDetails[1]
+
+    videoUrls = getVideoUrls(basePlayUrl, videoName)
 
     videoUrlsLength = len(videoUrls[0])  # 共计集数
 
@@ -38,7 +39,7 @@ def downloader(videoUrls, numberList, filePath):
     :param videoUrls: 视频链接池 <class 'list'>
     :param numberList: 集数列表 <class 'list'>
     :param filePath: 保存路径 <class 'str'>
-    :return: 0
+    :return: None
     '''
     print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()) +
           "\n正在下载中,请耐心等待...")
@@ -48,21 +49,24 @@ def downloader(videoUrls, numberList, filePath):
             # 异常处理,如果链接失效则尝试下一组
             try:
                 print("\n" + "-" * 150)
+                fileName = "第%d集" % (number + 1)
                 url = videoUrls[videoUrlsLength][number]
 
                 # 获取视频后缀名
                 suffix = url[url.rfind("."):]
 
-                fileName = "第%d集" % (number + 1)
-                download.download(url, filePath + "\\" + fileName + suffix)
-            except RuntimeError:
+                if suffix == ".m3u8" or suffix == ".M3U8":
+                    m3u8ToMp4.download(url, filePath + "\\", fileName)
+                else:
+                    download.download(url, filePath + "\\" + fileName + ".mp4")
+            except Exception:
                 if videoUrlsLength + 1 != len(videoUrls):
                     print("链接组%d可能存在问题,开始使用链接组%d" % ((videoUrlsLength + 1), (videoUrlsLength + 2)))
                 else:
                     print("链接地址可能失效,第%d集未能下载" % (number + 1))
             else:
                 break
-    return 0
+    return None
 
 
 def selector(videoUrlsLength):
@@ -154,24 +158,21 @@ def selector(videoUrlsLength):
     return numberList
 
 
-def getVideoUrls(baseUrl):
+def getVideoUrls(basePlayUrl, videoName):
     '''
     获取视频的链接池
-    global videoName: 视频名 <class 'str'>
-    :param baseUrl: 视频播放详情页的基础链接 <class 'str'>
+    :param basePlayUrl: 视频播放详情页的基础链接 <class 'str'>
+    :param videoName: 视频名 <class 'str'>
     :return: 返回视频链接列表 <class 'list'>
     '''
-    print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
     # 正则表达式规则
-    findVideoName = re.compile(r'<h1>.*?title="(.*?)".*?</h1>')
     findPlayData = re.compile(r'src="(/playdata.*?)"></script>')
     findPlayUrlList = re.compile(r"',(\['.*?])]")
     findPlayUrl = re.compile(r"\$(.*?)\$")
 
     # 请求一个链接获取此视频的name和playData.js
-    responseHtml = askUrl(baseUrl)
-    global videoName
-    videoName = re.findall(findVideoName, responseHtml)[0]
+    responseHtml = askUrl(basePlayUrl)
     playData = re.findall(findPlayData, responseHtml)[0]
     playDataUrl = 'http://www.imomoe.in' + playData
 
@@ -193,13 +194,83 @@ def getVideoUrls(baseUrl):
     return videoUrls
 
 
+def searchVideos(baseSearchUrl):
+    '''
+    搜索视频
+    global responseSearch: 搜索页文件 <class 'str'>
+    :param baseSearchUrl: 基础搜索链接 <class 'str'>
+    :return: 视频信息列表[url,name] <class 'list'>
+    '''
+    # 正则表达式规则
+    findVideoNames = re.compile(r'<h2>.*?title="(.*?)".*?</h2>')
+    findVideoOtherNames = re.compile(r'<span>(别名.*?)</span>')
+    findVideoTypes = re.compile(r'</span><span>.*?(类型.*?)</span>')
+    findVideoSummaries = re.compile(r'<p>(.*?)</p>')
+    findVideoIds = re.compile(r'/view/(\d+).html')
+
+    print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    while True:
+        # url中文转码
+        word = input("输入你想查找视频的名称: ")
+        word = parse.quote(word, encoding='gbk', errors='replace')
+        searchUrl = baseSearchUrl.format(search=word)
+        global responseSearch
+        responseSearch = askUrl(searchUrl)
+
+        # 判断输入是否找到记录
+        videoOtherNames = re.findall(findVideoOtherNames, responseSearch)
+        if not len(videoOtherNames):
+            print("对不起，没有找到任何记录! 换个关键字试试?\n")
+        else:
+            break
+
+    # 查找视频信息
+    videoNames = re.findall(findVideoNames, responseSearch)
+    videoOtherNames = re.findall(findVideoOtherNames, responseSearch)
+    videoTypes = re.findall(findVideoTypes, responseSearch)
+    videoSummaries = re.findall(findVideoSummaries, responseSearch)
+    videoIds = re.findall(findVideoIds, responseSearch)
+
+    # 显示视频简介
+    for index, videoOtherName in enumerate(videoOtherNames):
+        print("\n索引：%d" % (index + 1))
+        print("名称：" + videoNames[index])
+        print(videoOtherName)
+        print(videoTypes[index])
+        print("简介：" + videoSummaries[index])
+
+    # 输入合法性判断
+    print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    while True:
+        try:
+            index = int(input("输入你想查看视频的索引: "))
+        except:
+            print("--->输入有误, 重新输入!")
+        else:
+            if 0 < index and index < len(videoOtherNames) + 1:
+                videoDetails = []
+
+                id = videoIds[(index - 1) * 2]
+                url = f"http://www.imomoe.ai/player/{id}-0-0.html".format(id=id)
+                videoDetails.append(url)
+
+                name = videoNames[index - 1]
+                videoDetails.append(name)
+
+                print(videoDetails)
+                return videoDetails
+            else:
+                print("--->索引超出范围, 请重新输入!")
+
+
 def askUrl(url):
     '''
     模拟网页请求
     :param url: 网址 <class 'str'>
     :return: 网页内容 <class 'str'>
     '''
-    header = {"User-Agent": "Mozilla/5.0"}
+    header = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.9 Safari/537.36"}
     http = urllib3.PoolManager()
     response = http.request('GET', url=url, headers=header).data.decode("GBK")
     return response

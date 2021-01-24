@@ -15,30 +15,26 @@ from urllib import parse
 
 
 def main():
+    filePath = "D://Videos\\"
+
     baseSearchUrl = "http://www.imomoe.ai/search.asp?searchword={search}"
 
     videoDetails = searchVideos(baseSearchUrl)
 
-    basePlayUrl = videoDetails[0]
-    videoName = videoDetails[1]
+    videoUrls = getVideoUrls(videoDetails)
 
-    videoUrls = getVideoUrls(basePlayUrl, videoName)
+    numberList = selector(videoUrls)
 
-    videoUrlsLength = len(videoUrls[0])  # 共计集数
-
-    numberList = selector(videoUrlsLength)
-
-    filePath = "D://Videos\\" + videoName
-
-    downloader(videoUrls, numberList, filePath)
+    downloader(filePath, videoDetails[1], videoUrls, numberList)
 
 
-def downloader(videoUrls, numberList, filePath):
+def downloader(filePath, videoName, videoUrls, numberList):
     '''
     视频下载器
+    :param filePath: 保存路径 <class 'str'>
+    :param videoName: 视频名 <class 'list'>
     :param videoUrls: 视频链接池 <class 'list'>
     :param numberList: 集数列表 <class 'list'>
-    :param filePath: 保存路径 <class 'str'>
     :return: None
     '''
     print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()) +
@@ -56,9 +52,12 @@ def downloader(videoUrls, numberList, filePath):
                 suffix = url[url.rfind("."):]
 
                 if suffix == ".m3u8" or suffix == ".M3U8":
-                    m3u8ToMp4.download(url, filePath + "\\", fileName)
+                    m3u8ToMp4.download(url, filePath + videoName + "\\", fileName)
                 else:
-                    download.download(url, filePath + "\\" + fileName + ".mp4")
+                    ###################TEST#####################
+                    if "http" in url and "https" not in url:  ##
+                        url = url.replace("http", "https")  ####
+                    download.download(url, filePath + videoName + "\\" + fileName + ".mp4")
             except Exception:
                 if videoUrlsLength + 1 != len(videoUrls):
                     print("链接组%d可能存在问题,开始使用链接组%d" % ((videoUrlsLength + 1), (videoUrlsLength + 2)))
@@ -69,13 +68,15 @@ def downloader(videoUrls, numberList, filePath):
     return None
 
 
-def selector(videoUrlsLength):
+def selector(videoUrls):
     '''
     选择下载视频的集数
-    global expressions: 下载表达式
-    :param videoUrlsLength: 共计集数 <class 'int'>
+    global expressions: 下载表达式 <class 'str'>
+    :param videoUrls: 视频链接池 <class 'list'>
     :return: 下载集数列表 <class 'list'>
     '''
+    videoUrlsLength = len(videoUrls[0])
+
     numberList = []
     print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()) +
           "\n下载帮助:"
@@ -83,7 +84,7 @@ def selector(videoUrlsLength):
           "\n\t连续　多集: 50-66 -->下载第50集到第66集"
           "\n\t特殊　用法: -5等同于1-5和1+2+3+4+5  5-同理"
           "\n\t组合　使用: 1+3,5-10,20- -->下载第1集,3集,5-10集和第20集到结束"
-          "\n注　　意: 不允许1-5-10类似冗杂写法或用'+'作为开始或结束")
+          "\n注　　意: 组合使用表达式之间用','(英文逗号)分隔")
 
     # 合法字符列表
     legalChar = [f"{num}" for num in range(10)]
@@ -158,11 +159,10 @@ def selector(videoUrlsLength):
     return numberList
 
 
-def getVideoUrls(basePlayUrl, videoName):
+def getVideoUrls(videoDetails):
     '''
     获取视频的链接池
-    :param basePlayUrl: 视频播放详情页的基础链接 <class 'str'>
-    :param videoName: 视频名 <class 'str'>
+    :param videoDetails: 视频信息列表[url,name] <class 'list'>
     :return: 返回视频链接列表 <class 'list'>
     '''
     print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
@@ -172,14 +172,14 @@ def getVideoUrls(basePlayUrl, videoName):
     findPlayUrl = re.compile(r"\$(.*?)\$")
 
     # 请求一个链接获取此视频的name和playData.js
-    responseHtml = askUrl(basePlayUrl)
+    responseHtml = askUrl(videoDetails[0])
     playData = re.findall(findPlayData, responseHtml)[0]
     playDataUrl = 'http://www.imomoe.in' + playData
 
     # 从js中筛选出playUrlLists
     responseJs = askUrl(playDataUrl)
     playUrlLists = re.findall(findPlayUrlList, responseJs)
-    print(videoName + "-->共计有%d组下载地址: " % (len(playUrlLists)))
+    print(videoDetails[1] + "-->共计有%d组下载地址: " % (len(playUrlLists)))
     for index, playUrlStr in enumerate(playUrlLists):
         playUrlList = eval(playUrlStr)
         print("\t第%d组(共%d集): " % ((index + 1), len(playUrlList)), end="")
@@ -190,7 +190,6 @@ def getVideoUrls(basePlayUrl, videoName):
     for playUrlStr in playUrlLists:
         playUrlList = re.findall(findPlayUrl, playUrlStr)
         videoUrls.append(playUrlList)
-
     return videoUrls
 
 
@@ -269,8 +268,7 @@ def askUrl(url):
     :param url: 网址 <class 'str'>
     :return: 网页内容 <class 'str'>
     '''
-    header = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.9 Safari/537.36"}
+    header = {"User-Agent": "Mozilla/5.0 "}
     http = urllib3.PoolManager()
     response = http.request('GET', url=url, headers=header).data.decode("GBK")
     return response

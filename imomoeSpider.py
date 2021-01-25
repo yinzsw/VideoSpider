@@ -1,7 +1,7 @@
 # -*- coding = utf-8 -*-
 # @Author: yinzs Wang
 # @Time: 2021/1/23 13:59
-# @File: main.py
+# @File: imomoeSpider.py
 # @Software: PyCharm
 # @SpiderWebSite: http://www.imomoe.ai
 

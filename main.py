@@ -10,7 +10,7 @@ import time
 import urllib3
 import download
 import m3u8ToMp4
-import custome.string
+import CustomFunction.string
 from urllib import parse
 
 
@@ -104,8 +104,8 @@ def selector(videoUrls):
         else:
             # 判断符号"+"与符号"-"的位置合法性
 
-            indexList1 = custome.string.findall(expressions, "+")
-            indexList2 = custome.string.findall(expressions, "-")
+            indexList1 = CustomFunction.string.findall(expressions, "+")
+            indexList2 = CustomFunction.string.findall(expressions, "-")
             indexList1.extend(indexList2)
             for i in indexList1:
                 if (i + 1) in indexList1 or (i - 1) in indexList1:

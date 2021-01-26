@@ -10,8 +10,8 @@ import time
 import urllib3
 import download
 import m3u8ToMp4
-import CustomFunction.string
 from urllib import parse
+from CustomFunction import string
 
 
 def main():
@@ -37,7 +37,7 @@ def downloader(filePath, videoName, videoUrls, numberList):
     :param numberList: 集数列表 <class 'list'>
     :return: None
     '''
-    print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()) +
+    print("\n\n" + time.ctime() +
           "\n正在下载中,请耐心等待...")
 
     for number in numberList:
@@ -78,7 +78,7 @@ def selector(videoUrls):
     videoUrlsLength = len(videoUrls[0])
 
     numberList = []
-    print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()) +
+    print("\n\n" + time.ctime() +
           "\n下载帮助:"
           "\n\t不连续单集: 1+4+5 -->下载第1,4,5集"
           "\n\t连续　多集: 50-66 -->下载第50集到第66集"
@@ -104,8 +104,8 @@ def selector(videoUrls):
         else:
             # 判断符号"+"与符号"-"的位置合法性
 
-            indexList1 = CustomFunction.string.findall(expressions, "+")
-            indexList2 = CustomFunction.string.findall(expressions, "-")
+            indexList1 = string.findall(expressions, "+")
+            indexList2 = string.findall(expressions, "-")
             indexList1.extend(indexList2)
             for i in indexList1:
                 if (i + 1) in indexList1 or (i - 1) in indexList1:
@@ -165,20 +165,16 @@ def getVideoUrls(videoDetails):
     :param videoDetails: 视频信息列表[url,name] <class 'list'>
     :return: 返回视频链接列表 <class 'list'>
     '''
-    print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
-    # 正则表达式规则
-    findPlayData = re.compile(r'src="(/playdata.*?)"></script>')
-    findPlayUrlList = re.compile(r"',(\['.*?])]")
-    findPlayUrl = re.compile(r"\$(.*?)\$")
+    print("\n\n" + time.ctime())
 
     # 请求一个链接获取此视频的name和playData.js
     responseHtml = askUrl(videoDetails[0])
-    playData = re.findall(findPlayData, responseHtml)[0]
+    playData = re.findall(r'src="(/playdata.*?)"></script>', responseHtml)[0]
     playDataUrl = 'http://www.imomoe.in' + playData
 
     # 从js中筛选出playUrlLists
     responseJs = askUrl(playDataUrl)
-    playUrlLists = re.findall(findPlayUrlList, responseJs)
+    playUrlLists = re.findall(r"',(\['.*?])]", responseJs)
     print(videoDetails[1] + "-->共计有%d组下载地址: " % (len(playUrlLists)))
     for index, playUrlStr in enumerate(playUrlLists):
         playUrlList = eval(playUrlStr)
@@ -188,7 +184,7 @@ def getVideoUrls(videoDetails):
     # 清洗链接池,获取可用于下载的链接
     videoUrls = []
     for playUrlStr in playUrlLists:
-        playUrlList = re.findall(findPlayUrl, playUrlStr)
+        playUrlList = re.findall(r"\$(.*?)\$", playUrlStr)
         videoUrls.append(playUrlList)
     return videoUrls
 
@@ -200,14 +196,8 @@ def searchVideos(baseSearchUrl):
     :param baseSearchUrl: 基础搜索链接 <class 'str'>
     :return: 视频信息列表[url,name] <class 'list'>
     '''
-    # 正则表达式规则
-    findVideoNames = re.compile(r'<h2>.*?title="(.*?)".*?</h2>')
-    findVideoOtherNames = re.compile(r'<span>(别名.*?)</span>')
-    findVideoTypes = re.compile(r'</span><span>.*?(类型.*?)</span>')
-    findVideoSummaries = re.compile(r'<p>(.*?)</p>')
-    findVideoIds = re.compile(r'/view/(\d+).html')
 
-    print(time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    print(time.ctime())
     while True:
         # url中文转码
         word = input("输入你想查找视频的名称: ")
@@ -217,18 +207,18 @@ def searchVideos(baseSearchUrl):
         responseSearch = askUrl(searchUrl)
 
         # 判断输入是否找到记录
-        videoOtherNames = re.findall(findVideoOtherNames, responseSearch)
+        videoOtherNames = re.findall(r'<span>(别名.*?)</span>', responseSearch)
         if not len(videoOtherNames):
             print("对不起，没有找到任何记录! 换个关键字试试?\n")
         else:
             break
 
     # 查找视频信息
-    videoNames = re.findall(findVideoNames, responseSearch)
-    videoOtherNames = re.findall(findVideoOtherNames, responseSearch)
-    videoTypes = re.findall(findVideoTypes, responseSearch)
-    videoSummaries = re.findall(findVideoSummaries, responseSearch)
-    videoIds = re.findall(findVideoIds, responseSearch)
+    videoNames = re.findall(r'<h2>.*?title="(.*?)".*?</h2>', responseSearch)
+    videoOtherNames = re.findall(r'<span>(别名.*?)</span>', responseSearch)
+    videoTypes = re.findall(r'</span><span>.*?(类型.*?)</span>', responseSearch)
+    videoSummaries = re.findall(r'<p>(.*?)</p>', responseSearch)
+    videoIds = re.findall(r'/view/(\d+)\.html', responseSearch)
 
     # 显示视频简介
     for index, videoOtherName in enumerate(videoOtherNames):
@@ -239,7 +229,7 @@ def searchVideos(baseSearchUrl):
         print("简介：" + videoSummaries[index])
 
     # 输入合法性判断
-    print("\n\n" + time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+    print("\n\n" + time.ctime())
     while True:
         try:
             index = int(input("输入你想查看视频的索引: "))
